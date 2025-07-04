@@ -196,7 +196,7 @@ def pipeline(args):
     logger = Logger(pathlib.Path(args.work_dir), args)
 
     # ---------------- Create Environment ----------------
-    envs = make_async_envs(args)
+    # envs = make_async_envs(args)
         
     # ---------------- Create Dataset ----------------
     dataset_path = os.path.expanduser(args.dataset_path)
@@ -308,9 +308,9 @@ def pipeline(args):
                 print("Evaluate model...")
                 agent.model.eval()
                 agent.model_ema.eval()
-                metrics = {'step': n_gradient_step}
-                metrics.update(inference(args, envs, dataset, agent, logger))
-                logger.log(metrics, category='inference')
+                # metrics = {'step': n_gradient_step}
+                # metrics.update(inference(args, envs, dataset, agent, logger))
+                # logger.log(metrics, category='inference')
                 agent.model.train()
                 agent.model_ema.train()
             
@@ -321,6 +321,7 @@ def pipeline(args):
                 break
     elif args.mode == "inference":
         # ----------------- Inference ----------------------
+        NotImplementedError("Inference mode is not implemented")
         if args.model_path:
             agent.load(args.model_path)
         else:
