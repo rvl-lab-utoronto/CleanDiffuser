@@ -206,6 +206,32 @@ def make_async_envs(args):
 
 # --------------------- Inference (unchanged logic) --------------------- #
 
+def add_lowdim_obs_noise(obs_dict, shape_meta, noise_std=0.0, noise_key_to_std=None):
+    """
+    Add Gaussian noise to low-dim observation tensors only.
+    Assumes obs_dict values are already normalized tensors.
+    Does NOT touch image keys.
+    """
+    if noise_std <= 0.0 and (not noise_key_to_std):
+        return obs_dict
+
+    noisy_obs = dict(obs_dict)
+
+    for key, tensor in obs_dict.items():
+        obs_attr = shape_meta["obs"].get(key, {})
+        obs_type = obs_attr.get("type", "low_dim")
+        if obs_type != "low_dim":
+            continue
+
+        key_std = noise_std
+        if noise_key_to_std is not None and key in noise_key_to_std:
+            key_std = float(noise_key_to_std[key])
+
+        if key_std > 0.0:
+            noisy_obs[key] = tensor + torch.randn_like(tensor) * key_std
+
+    return noisy_obs
+
 def inference(args, envs, dataset, agent, logger):
     episode_rewards = []
     episode_steps = []
@@ -406,6 +432,16 @@ def pipeline(args):
             # get condition
             nobs = batch['obs']
             condition = {k: nobs[k][:, :args.obs_steps, :].to(args.device) for k in nobs.keys()}
+
+            # optional low-dim state noise augmentation (training only)
+            if getattr(args, "enable_state_noise", False):
+                condition = add_lowdim_obs_noise(
+                    condition,
+                    shape_meta=args.shape_meta,
+                    noise_std=float(getattr(args, "state_noise_std", 0.0)),
+                    noise_key_to_std=getattr(args, "state_noise_key_to_std", None),
+                )
+
             naction = batch['action'].to(args.device)
 
             diffusion_loss = agent.update(naction, condition)['loss']
